@@ -1,5 +1,6 @@
 from flask import Flask, escape, request
 from flask import make_response
+import json
 import sqlite3
 import os
 from pprint import pprint
@@ -74,6 +75,7 @@ def get_test_info(testid):
 
     t = (testid,)
     c.execute("SELECT * FROM tests WHERE id=?", t)
+
     test = c.fetchone()
     test_id = test[0]
     test_name = test[1]
@@ -82,13 +84,33 @@ def get_test_info(testid):
 
     # res = getres(keys_str, test_id)
 
-    c.execute("SELECT * FROM submissions WHERE test_id=?", t)
-    submis = c.fetchall()
+    cursor = c.execute(
+        "SELECT scantron_id, scantron_url, student_name,subject,score,ques_answers   FROM submissions WHERE test_id=?", t)
+    names = list(map(lambda x: x[0], cursor.description))
+    # row = c.fetchone()
+    # col = row.keys()
+    rows = c.fetchall()
+    submissions = []
 
-    print(test)
-    # print(submis)
-    pprint(submis)
-    print(len(submis))
+    print(names)
+
+    for x in range(len(rows)):
+        temp = {}
+        for y in range(len(rows[0])):
+
+            if rows[x][y] == "ques_answers":
+                getres(rows[x][y], )
+            else:
+                temp[names[y]] = rows[x][y]
+
+        submissions.append(temp)
+
+    pprint(submissions)
+
+    # submissions =
+    # print(test)
+    # # print(submis)
+    # print(len(row))
 
     conn.commit()
     conn.close()
