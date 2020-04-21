@@ -93,13 +93,16 @@ def get_test_info(testid):
     submissions = []
 
     print(names)
+    print(rows)
 
     for x in range(len(rows)):
         temp = {}
         for y in range(len(rows[0])):
 
-            if rows[x][y] == "ques_answers":
-                getres(rows[x][y], )
+            if y == 5:
+                print("I am here")
+                temp["result"] = getres(
+                    dict(enumerate((rows[x][y].split(",")))), keys_str.split(","))
             else:
                 temp[names[y]] = rows[x][y]
 
@@ -115,7 +118,7 @@ def get_test_info(testid):
     conn.commit()
     conn.close()
 
-    return {}, 200
+    return {"test_id": test_id, "subject": test_name, "answer_keys": test_ans_keys_json, "submissions": submissions}, 200
 
 
 @app.before_first_request
@@ -144,10 +147,12 @@ def ini_db_table():
 
 
 def getres(si, keys_inlist):
+    print("si", si)
+    print("keys_inlist", keys_inlist)
 
     student_ans_list = list(si.values())  # return
 
-    print("db_test", keys_inlist)
+    print("keys_inlist", keys_inlist)
     print("student_ans_list", student_ans_list)
 
     quenumber = 1
