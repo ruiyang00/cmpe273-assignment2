@@ -1,17 +1,25 @@
-from flask import Flask, escape, request
+from flask import Flask, escape, request, send_from_directory
 from flask import make_response
+from marshmallow import Schema, fields, pprint, ValidationError
 import json
 import sqlite3
 import os
-from pprint import pprint
+
+
+class TeseSchema(Schema):
+    subject = fields.String(required=True)
+    answer_keys = fields.Dict(keys=fields.Str(), values=fields.Str())
 
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
+app.config["UPLOAD_FOLDER"] = "/user_upload_files"
 
 
 @app.route('/api/tests', methods=['POST'])
 def create_test():
+
+    TeseSchema().load(request.json)
     subjname = request.json.get('subject')
     anskeys_json = request.json.get('answer_keys')
     anskeys = ",".join(list(anskeys_json.values()))
@@ -27,17 +35,29 @@ def create_test():
     conn.commit()
     tid = c.fetchone()[0]
     conn.close()
+
     return {'test_id': tid, "subject": subjname, "answer_keys": anskeys_json,
             'submissions': []}, 201
 
 
 @app.route('/api/tests/<testid>/scantrons', methods=['POST'])
 def upload_scantron(testid):
-    si = request.json.get('student_input')
+
+    file = request.files['file']
+
+    file_content = file.read()
+    data = json.loads(file_content)
+
+    si = data['answers']
     input_str = ",".join(list(si.values()))
-    sject = request.json.get('subject')
-    stu_name = request.json.get('name')
-    s_url = os.getcwd() + "user_upload_files/image.png"
+    sject = data['subject']
+    stu_name = data['name']
+
+    s_url = "http://localhost:5000/user_upload_files/"+file.filename
+
+    file.save(os.getcwd()+app.config["UPLOAD_FOLDER"]+"/" + file.filename)
+    with open('./user_upload_files/' + file.filename, "w") as writefile:
+        writefile.write(json.dumps(data))
 
     res_score = getscore(si, testid)
     conn = sqlite3.connect('cmpe273.db')
@@ -51,21 +71,20 @@ def upload_scantron(testid):
     conn = sqlite3.connect('cmpe273.db')
     c = conn.cursor()
 
-    # print("s_url:", s_url)
-    # print("sject:", sject)
-    # print("stu_name:", stu_name)
-    # print("res_score:", res_score)
-    # print("testid:", testid)
-
     c.execute("INSERT INTO submissions (scantron_url, subject,student_name, score, ques_answers,test_id) VALUES (?,?,?,?,?,?)",
               (s_url, sject, stu_name, res_score, input_str, testid))
 
-    t = (stu_name,)  # get student name
+    t = (stu_name,)
     c.execute("SELECT scantron_id FROM submissions WHERE student_name=?", t)
     conn.commit()
     s_id = c.fetchone()[0]
 
     return {"scantron_id": s_id, "scantron_url": s_url, "name": stu_name, "subject": sject, "score": res_score, "result": res}, 201
+
+
+@app.route('/user_upload_files/<file_name>', methods=['GET'])
+def download_scantron(file_name):
+    return send_from_directory(os.getcwd()+"/user_upload_files", file_name, as_attachment=True)
 
 
 @app.route('/api/tests/<testid>', methods=['GET'])
@@ -133,7 +152,7 @@ def ini_db_table():
 
     c.execute('''CREATE TABLE IF NOT EXISTS submissions (
                         scantron_id integer PRIMARY KEY NOT NULL,
-                        scantron_url blob NOT NULL,
+                        scantron_url text NOT NULL,
                         student_name text NOT NULL,
                         subject text NOT NULL,
                         score integer,
@@ -147,14 +166,7 @@ def ini_db_table():
 
 
 def getres(si, keys_inlist):
-    print("si", si)
-    print("keys_inlist", keys_inlist)
-
-    student_ans_list = list(si.values())  # return
-
-    print("keys_inlist", keys_inlist)
-    print("student_ans_list", student_ans_list)
-
+    student_ans_list = list(si.values())  
     quenumber = 1
     res = {}
     for expected, actual in zip(keys_inlist, student_ans_list):
@@ -168,22 +180,28 @@ def getres(si, keys_inlist):
 
 
 def getscore(si, testid):
-    print("testid from getscore():", testid)
+
     student_ans_list = list(si.values())
-    print(student_ans_list)  # return
     conn = sqlite3.connect('cmpe273.db')
     c = conn.cursor()
     c.execute("SELECT anskeys FROM tests WHERE id=?", testid)
     conn.commit()
     testkeys = c.fetchone()
     keys_inlist = testkeys[0].split(",")
+
+    print("length of si", len(si))
+    print("si", si)
+    print("student_ans_list", student_ans_list)
+    print("keys_inlist", keys_inlist)
+
     conn.close()
 
     totalpoints = 0
+    print("length of keys_inlist: ", len(keys_inlist))
+    print("length of keys_inlist: ", len(student_ans_list))
+
     for expected, actual in zip(keys_inlist, student_ans_list):
         if expected == actual:
             totalpoints += 1
-
-    print("totalpoints: ", totalpoints)
 
     return totalpoints
