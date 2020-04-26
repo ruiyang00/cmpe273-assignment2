@@ -99,7 +99,7 @@ def get_test_info(testid):
     test_id = test[0]
     test_name = test[1]
     keys_str = test[2]  # "A,B,C,D,E"
-    test_ans_keys_json = dict(enumerate(keys_str.split(",")))
+    test_ans_keys_json = dict(enumerate(keys_str.split(","), 1))
 
     # res = getres(keys_str, test_id)
 
@@ -128,12 +128,6 @@ def get_test_info(testid):
         submissions.append(temp)
 
     pprint(submissions)
-
-    # submissions =
-    # print(test)
-    # # print(submis)
-    # print(len(row))
-
     conn.commit()
     conn.close()
 
@@ -166,7 +160,7 @@ def ini_db_table():
 
 
 def getres(si, keys_inlist):
-    student_ans_list = list(si.values())  
+    student_ans_list = list(si.values())
     quenumber = 1
     res = {}
     for expected, actual in zip(keys_inlist, student_ans_list):
@@ -203,5 +197,4 @@ def getscore(si, testid):
     for expected, actual in zip(keys_inlist, student_ans_list):
         if expected == actual:
             totalpoints += 1
-
     return totalpoints
